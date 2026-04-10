@@ -251,3 +251,211 @@ func TestCreatePost_TagsLimitedTo3(t *testing.T) {
 		t.Errorf("expected 3 tags max, got %d", len(post.Tags))
 	}
 }
+
+func TestListPosts_FilterBySource(t *testing.T) {
+	srv := setupTestServer(t)
+	apiKey := "test-key-filter-source"
+	seedAPIKey(t, srv.Queries, apiKey)
+
+	source1 := createTestSource(t, srv, apiKey)
+
+	// Create second source
+	body := `{"kind":"push","name":"Other Source"}`
+	req := httptest.NewRequest("POST", "/api/v1/sources", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	w := httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+	var source2 db.Source
+	json.NewDecoder(w.Body).Decode(&source2)
+
+	// Create posts for each source
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source1.ID, Title: "Source1 Post", Url: "https://example.com/s1",
+		SummaryStatus: "pending", Tags: []string{}, PublishedAt: time.Now(),
+	})
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source2.ID, Title: "Source2 Post", Url: "https://example.com/s2",
+		SummaryStatus: "pending", Tags: []string{}, PublishedAt: time.Now(),
+	})
+
+	// Filter by source1
+	req = httptest.NewRequest("GET", "/api/v1/posts?source_id="+source1.ID.String(), nil)
+	w = httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+
+	var posts []map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&posts)
+	if len(posts) != 1 {
+		t.Errorf("expected 1 post filtered by source, got %d", len(posts))
+	}
+}
+
+func TestListPosts_FilterByTag(t *testing.T) {
+	srv := setupTestServer(t)
+	apiKey := "test-key-filter-tag"
+	seedAPIKey(t, srv.Queries, apiKey)
+	source := createTestSource(t, srv, apiKey)
+
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source.ID, Title: "ML Post", Url: "https://example.com/ml",
+		SummaryStatus: "pending", Tags: []string{"machine-learning"}, PublishedAt: time.Now(),
+	})
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source.ID, Title: "Web Post", Url: "https://example.com/web",
+		SummaryStatus: "pending", Tags: []string{"web-dev"}, PublishedAt: time.Now(),
+	})
+
+	req := httptest.NewRequest("GET", "/api/v1/posts?tag=machine-learning", nil)
+	w := httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+
+	var posts []map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&posts)
+	if len(posts) != 1 {
+		t.Errorf("expected 1 post filtered by tag, got %d", len(posts))
+	}
+}
+
+func TestListPosts_FilterByDateRange(t *testing.T) {
+	srv := setupTestServer(t)
+	apiKey := "test-key-filter-date"
+	seedAPIKey(t, srv.Queries, apiKey)
+	source := createTestSource(t, srv, apiKey)
+
+	oldDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	newDate := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source.ID, Title: "Old Post", Url: "https://example.com/old",
+		SummaryStatus: "pending", Tags: []string{}, PublishedAt: oldDate,
+	})
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source.ID, Title: "New Post", Url: "https://example.com/new",
+		SummaryStatus: "pending", Tags: []string{}, PublishedAt: newDate,
+	})
+
+	// Only posts after March
+	req := httptest.NewRequest("GET", "/api/v1/posts?after=2026-03-01T00:00:00Z", nil)
+	w := httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+
+	var posts []map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&posts)
+	if len(posts) != 1 {
+		t.Errorf("expected 1 post after March, got %d", len(posts))
+	}
+
+	// Only posts before February
+	req = httptest.NewRequest("GET", "/api/v1/posts?before=2026-02-01T00:00:00Z", nil)
+	w = httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+
+	json.NewDecoder(w.Body).Decode(&posts)
+	if len(posts) != 1 {
+		t.Errorf("expected 1 post before Feb, got %d", len(posts))
+	}
+}
+
+func TestSearchPosts_FullTextSearch(t *testing.T) {
+	srv := setupTestServer(t)
+	apiKey := "test-key-search"
+	seedAPIKey(t, srv.Queries, apiKey)
+	source := createTestSource(t, srv, apiKey)
+
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source.ID, Title: "Understanding Transformer Architecture",
+		Url: "https://example.com/transformers", SummaryStatus: "ready",
+		SummaryShort: pgtype.Text{String: "Deep dive into attention mechanisms", Valid: true},
+		SummaryLong:  pgtype.Text{String: "A comprehensive guide to transformers", Valid: true},
+		Tags: []string{"machine-learning", "transformers"}, PublishedAt: time.Now(),
+	})
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source.ID, Title: "Building REST APIs with Go",
+		Url: "https://example.com/go-apis", SummaryStatus: "ready",
+		SummaryShort: pgtype.Text{String: "How to build HTTP APIs in Go", Valid: true},
+		SummaryLong:  pgtype.Text{String: "A guide to building REST APIs", Valid: true},
+		Tags: []string{"golang", "api"}, PublishedAt: time.Now(),
+	})
+
+	// Search for "transformer"
+	req := httptest.NewRequest("GET", "/api/v1/posts?q=transformer", nil)
+	w := httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var posts []map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&posts)
+	if len(posts) != 1 {
+		t.Errorf("expected 1 result for 'transformer', got %d", len(posts))
+	}
+	if len(posts) > 0 {
+		if posts[0]["title"] != "Understanding Transformer Architecture" {
+			t.Errorf("wrong search result: %v", posts[0]["title"])
+		}
+	}
+
+	// Search for "API" should find the Go post
+	req = httptest.NewRequest("GET", "/api/v1/posts?q=API", nil)
+	w = httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+
+	json.NewDecoder(w.Body).Decode(&posts)
+	if len(posts) != 1 {
+		t.Errorf("expected 1 result for 'API', got %d", len(posts))
+	}
+
+	// Search with no results
+	req = httptest.NewRequest("GET", "/api/v1/posts?q=kubernetes", nil)
+	w = httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+
+	json.NewDecoder(w.Body).Decode(&posts)
+	if len(posts) != 0 {
+		t.Errorf("expected 0 results for 'kubernetes', got %d", len(posts))
+	}
+}
+
+func TestSearchPosts_WithSourceFilter(t *testing.T) {
+	srv := setupTestServer(t)
+	apiKey := "test-key-search-filter"
+	seedAPIKey(t, srv.Queries, apiKey)
+
+	source1 := createTestSource(t, srv, apiKey)
+
+	body := `{"kind":"push","name":"Blog B"}`
+	req := httptest.NewRequest("POST", "/api/v1/sources", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	w := httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+	var source2 db.Source
+	json.NewDecoder(w.Body).Decode(&source2)
+
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source1.ID, Title: "Machine Learning Guide",
+		Url: "https://example.com/ml1", SummaryStatus: "ready",
+		SummaryShort: pgtype.Text{String: "ML guide", Valid: true},
+		Tags: []string{"ml"}, PublishedAt: time.Now(),
+	})
+	srv.Queries.CreatePost(context.Background(), db.CreatePostParams{
+		SourceID: source2.ID, Title: "Machine Learning Tips",
+		Url: "https://example.com/ml2", SummaryStatus: "ready",
+		SummaryShort: pgtype.Text{String: "ML tips", Valid: true},
+		Tags: []string{"ml"}, PublishedAt: time.Now(),
+	})
+
+	// Search "machine learning" filtered to source1
+	req = httptest.NewRequest("GET", "/api/v1/posts?q=machine+learning&source_id="+source1.ID.String(), nil)
+	w = httptest.NewRecorder()
+	srv.Router.ServeHTTP(w, req)
+
+	var posts []map[string]interface{}
+	json.NewDecoder(w.Body).Decode(&posts)
+	if len(posts) != 1 {
+		t.Errorf("expected 1 result with source filter, got %d", len(posts))
+	}
+}

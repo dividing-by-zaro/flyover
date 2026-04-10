@@ -10,5 +10,19 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://flyover:flyover@postgres:5432/flyover?sslmode=disable
+      API_KEY: ${API_KEY:-changeme}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-5.4}
+      POLL_HOUR: ${POLL_HOUR:-3}
+      PORT: "8080"
+    depends_on:
+      - postgres
+
 volumes:
   pgdata:
