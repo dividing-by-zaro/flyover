@@ -25,8 +25,8 @@ export default function DetailModal({ post, onClose }) {
 
   if (!post) return null;
 
-  const summaryLong = post.summary_long?.Valid ? post.summary_long.String : null;
-  const author = post.author?.Valid ? post.author.String : null;
+  const summaryLong = typeof post.summary_long === 'string' ? post.summary_long : null;
+  const author = typeof post.author === 'string' ? post.author : null;
   const sourceName = post.source_name || 'Unknown';
   const tags = post.tags || [];
 

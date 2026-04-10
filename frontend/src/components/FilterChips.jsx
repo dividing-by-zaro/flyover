@@ -12,7 +12,7 @@ export default function FilterChips({ sources, activeSourceId, onSourceFilter, t
           <Chip
             key={source.id}
             label={source.name}
-            icon={source.icon_url?.String}
+            icon={typeof source.icon_url === 'string' ? source.icon_url : null}
             active={activeSourceId === source.id}
             onClick={() => onSourceFilter(source.id)}
           />

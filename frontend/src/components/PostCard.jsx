@@ -43,10 +43,10 @@ export default function PostCard({ post, onClick }) {
   };
 
   const recent = isRecent(post.published_at);
-  const summaryText = post.summary_short?.Valid ? post.summary_short.String : null;
+  const summaryText = typeof post.summary_short === 'string' ? post.summary_short : null;
   const tags = post.tags || [];
   const sourceName = post.source_name || 'Unknown';
-  const sourceIcon = post.source_icon_url?.Valid ? post.source_icon_url.String : null;
+  const sourceIcon = typeof post.source_icon_url === 'string' ? post.source_icon_url : null;
 
   return (
     <div
@@ -60,7 +60,7 @@ export default function PostCard({ post, onClick }) {
       `}
     >
       {/* Hero image */}
-      {post.image_url?.Valid && post.image_url.String && (
+      {typeof post.image_url === 'string' && post.image_url && (
         <div className="mb-4 -mx-5 -mt-5 rounded-t-2xl overflow-hidden">
           <img
             src={post.image_url.String}
