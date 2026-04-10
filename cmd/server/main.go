@@ -91,10 +91,22 @@ func main() {
 		}
 	}
 
-	// Initial backfill (background)
+	// Initial backfill (background), then sweep pending summaries
 	go func() {
 		if err := p.Backfill(ctx); err != nil {
 			log.Printf("backfill error: %v", err)
+		}
+		if sum != nil {
+			log.Println("sweeping pending summaries after backfill...")
+			contentFetcher := func(url string) (string, error) {
+				article, err := readability.FromURL(url, 30*time.Second)
+				if err != nil {
+					return "", err
+				}
+				return article.TextContent, nil
+			}
+			sum.SweepPending(ctx, contentFetcher)
+			log.Println("summary sweep complete")
 		}
 	}()
 
