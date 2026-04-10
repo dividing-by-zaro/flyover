@@ -5,6 +5,7 @@
 *.so
 *.dylib
 /flyover
+/server
 
 # Test binary
 *.test
