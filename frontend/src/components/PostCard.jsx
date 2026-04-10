@@ -92,7 +92,7 @@ export default function PostCard({ post, onClick }) {
 
       {/* Summary */}
       {summaryText && (
-        <p className="text-sm text-gray-500 leading-relaxed mb-3 line-clamp-3">
+        <p className="text-sm text-gray-500 leading-relaxed mb-3">
           {summaryText}
         </p>
       )}
