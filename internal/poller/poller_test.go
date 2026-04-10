@@ -47,8 +47,7 @@ func setupTestDB(t *testing.T) *db.Queries {
 		t.Logf("migration warning: %v", err)
 	}
 
-	_, _ = pool.Exec(ctx, "DELETE FROM posts")
-	_, _ = pool.Exec(ctx, "DELETE FROM sources")
+	pool.Exec(ctx, "TRUNCATE posts, sources CASCADE")
 
 	return db.New(pool)
 }

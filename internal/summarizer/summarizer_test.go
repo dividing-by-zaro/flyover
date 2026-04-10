@@ -41,8 +41,7 @@ func setupTestDB(t *testing.T) *db.Queries {
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		t.Logf("migration: %v", err)
 	}
-	pool.Exec(ctx, "DELETE FROM posts")
-	pool.Exec(ctx, "DELETE FROM sources")
+	pool.Exec(ctx, "TRUNCATE posts, sources CASCADE")
 	return db.New(pool)
 }
 

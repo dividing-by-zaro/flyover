@@ -44,18 +44,10 @@ func setupTestDB(t *testing.T) *db.Queries {
 		t.Logf("migration warning: %v", err)
 	}
 
-	// Clean tables for test isolation
-	_, err = pool.Exec(ctx, "DELETE FROM posts")
+	// Clean tables for test isolation (CASCADE handles FK ordering)
+	_, err = pool.Exec(ctx, "TRUNCATE posts, sources, api_keys CASCADE")
 	if err != nil {
-		t.Fatalf("failed to clean posts: %v", err)
-	}
-	_, err = pool.Exec(ctx, "DELETE FROM sources")
-	if err != nil {
-		t.Fatalf("failed to clean sources: %v", err)
-	}
-	_, err = pool.Exec(ctx, "DELETE FROM api_keys")
-	if err != nil {
-		t.Fatalf("failed to clean api_keys: %v", err)
+		t.Fatalf("failed to clean tables: %v", err)
 	}
 
 	return db.New(pool)
