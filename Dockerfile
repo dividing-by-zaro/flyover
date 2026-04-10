@@ -5,7 +5,7 @@ COPY frontend/ .
 RUN npm ci && npm run build
 
 # Build Go binary
-FROM golang:1.22 AS backend
+FROM golang:1.26 AS backend
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
