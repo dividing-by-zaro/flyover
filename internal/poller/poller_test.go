@@ -184,11 +184,14 @@ func TestPollSource_Deduplication(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	source, _ := queries.CreateSource(context.Background(), db.CreateSourceParams{
+	source, err := queries.CreateSource(context.Background(), db.CreateSourceParams{
 		Kind:    "rss",
 		Name:    "Dedup Test",
 		FeedUrl: pgtype.Text{String: ts.URL, Valid: true},
 	})
+	if err != nil {
+		t.Fatalf("create source: %v", err)
+	}
 
 	p := New(queries, 60)
 
