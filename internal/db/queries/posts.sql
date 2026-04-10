@@ -17,12 +17,12 @@ SELECT p.*, s.name AS source_name, s.icon_url AS source_icon_url
 FROM posts p
 JOIN sources s ON p.source_id = s.id
 WHERE
-    ($1::uuid IS NULL OR p.source_id = $1) AND
-    ($2::text IS NULL OR $2 = ANY(p.tags)) AND
-    ($3::timestamptz IS NULL OR p.published_at < $3) AND
-    ($4::timestamptz IS NULL OR p.published_at > $4)
+    (sqlc.narg('source_id')::uuid IS NULL OR p.source_id = sqlc.narg('source_id')) AND
+    (sqlc.narg('tag')::text IS NULL OR sqlc.narg('tag') = ANY(p.tags)) AND
+    (sqlc.narg('before')::timestamptz IS NULL OR p.published_at < sqlc.narg('before')) AND
+    (sqlc.narg('after')::timestamptz IS NULL OR p.published_at > sqlc.narg('after'))
 ORDER BY p.published_at DESC
-LIMIT $5 OFFSET $6;
+LIMIT $1 OFFSET $2;
 
 -- name: SearchPosts :many
 SELECT p.*, s.name AS source_name, s.icon_url AS source_icon_url,
@@ -30,10 +30,10 @@ SELECT p.*, s.name AS source_name, s.icon_url AS source_icon_url,
 FROM posts p
 JOIN sources s ON p.source_id = s.id
 WHERE p.search_vector @@ websearch_to_tsquery('english', $1)
-    AND ($2::uuid IS NULL OR p.source_id = $2)
-    AND ($3::text IS NULL OR $3 = ANY(p.tags))
+    AND (sqlc.narg('source_id')::uuid IS NULL OR p.source_id = sqlc.narg('source_id'))
+    AND (sqlc.narg('tag')::text IS NULL OR sqlc.narg('tag') = ANY(p.tags))
 ORDER BY rank DESC
-LIMIT $4 OFFSET $5;
+LIMIT $2 OFFSET $3;
 
 -- name: UpdatePostSummary :exec
 UPDATE posts

@@ -196,21 +196,21 @@ SELECT p.id, p.source_id, p.title, p.url, p.author, p.summary_short, p.summary_l
 FROM posts p
 JOIN sources s ON p.source_id = s.id
 WHERE
-    ($1::uuid IS NULL OR p.source_id = $1) AND
-    ($2::text IS NULL OR $2 = ANY(p.tags)) AND
-    ($3::timestamptz IS NULL OR p.published_at < $3) AND
-    ($4::timestamptz IS NULL OR p.published_at > $4)
+    ($3::uuid IS NULL OR p.source_id = $3) AND
+    ($4::text IS NULL OR $4 = ANY(p.tags)) AND
+    ($5::timestamptz IS NULL OR p.published_at < $5) AND
+    ($6::timestamptz IS NULL OR p.published_at > $6)
 ORDER BY p.published_at DESC
-LIMIT $5 OFFSET $6
+LIMIT $1 OFFSET $2
 `
 
 type ListPostsParams struct {
-	Column1 uuid.UUID `json:"column_1"`
-	Column2 string    `json:"column_2"`
-	Column3 time.Time `json:"column_3"`
-	Column4 time.Time `json:"column_4"`
-	Limit   int32     `json:"limit"`
-	Offset  int32     `json:"offset"`
+	Limit    int32              `json:"limit"`
+	Offset   int32              `json:"offset"`
+	SourceID pgtype.UUID        `json:"source_id"`
+	Tag      pgtype.Text        `json:"tag"`
+	Before   pgtype.Timestamptz `json:"before"`
+	After    pgtype.Timestamptz `json:"after"`
 }
 
 type ListPostsRow struct {
@@ -239,12 +239,12 @@ type ListPostsRow struct {
 
 func (q *Queries) ListPosts(ctx context.Context, arg ListPostsParams) ([]ListPostsRow, error) {
 	rows, err := q.db.Query(ctx, listPosts,
-		arg.Column1,
-		arg.Column2,
-		arg.Column3,
-		arg.Column4,
 		arg.Limit,
 		arg.Offset,
+		arg.SourceID,
+		arg.Tag,
+		arg.Before,
+		arg.After,
 	)
 	if err != nil {
 		return nil, err
@@ -303,18 +303,18 @@ SELECT p.id, p.source_id, p.title, p.url, p.author, p.summary_short, p.summary_l
 FROM posts p
 JOIN sources s ON p.source_id = s.id
 WHERE p.search_vector @@ websearch_to_tsquery('english', $1)
-    AND ($2::uuid IS NULL OR p.source_id = $2)
-    AND ($3::text IS NULL OR $3 = ANY(p.tags))
+    AND ($4::uuid IS NULL OR p.source_id = $4)
+    AND ($5::text IS NULL OR $5 = ANY(p.tags))
 ORDER BY rank DESC
-LIMIT $4 OFFSET $5
+LIMIT $2 OFFSET $3
 `
 
 type SearchPostsParams struct {
-	WebsearchToTsquery string    `json:"websearch_to_tsquery"`
-	Column2            uuid.UUID `json:"column_2"`
-	Column3            string    `json:"column_3"`
-	Limit              int32     `json:"limit"`
-	Offset             int32     `json:"offset"`
+	WebsearchToTsquery string      `json:"websearch_to_tsquery"`
+	Limit              int32       `json:"limit"`
+	Offset             int32       `json:"offset"`
+	SourceID           pgtype.UUID `json:"source_id"`
+	Tag                pgtype.Text `json:"tag"`
 }
 
 type SearchPostsRow struct {
@@ -345,10 +345,10 @@ type SearchPostsRow struct {
 func (q *Queries) SearchPosts(ctx context.Context, arg SearchPostsParams) ([]SearchPostsRow, error) {
 	rows, err := q.db.Query(ctx, searchPosts,
 		arg.WebsearchToTsquery,
-		arg.Column2,
-		arg.Column3,
 		arg.Limit,
 		arg.Offset,
+		arg.SourceID,
+		arg.Tag,
 	)
 	if err != nil {
 		return nil, err
