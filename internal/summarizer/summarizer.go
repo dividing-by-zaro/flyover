@@ -56,13 +56,13 @@ func NewWithClient(client *openai.Client, model string, queries *db.Queries) *Su
 const systemPrompt = `You are a content summarizer for a technical reading feed. Given an article, produce a JSON object with exactly these fields:
 
 {
-  "short": "A 2-sentence card summary focusing on the author's main point and the single biggest takeaway for the reader.",
+  "short": "One sentence capturing the author's main point and the single biggest takeaway.",
   "long": "A 5-6 sentence detailed summary covering the key arguments, methodology, and conclusions. Focus on what makes this piece valuable to a technical reader.",
   "tags": ["tag-1", "tag-2"]
 }
 
 Rules:
-- "short" must be exactly 2 sentences
+- "short" must be exactly 1 sentence
 - "long" must be 5-6 sentences
 - "tags" must be 0-3 short, lowercase, hyphenated topic tags
 - Focus on the author's intent and the reader's takeaway
@@ -70,7 +70,7 @@ Rules:
 - Return ONLY valid JSON, no markdown or extra text`
 
 const repairPrompt = `The previous response was not valid JSON. Please return ONLY a valid JSON object with these exact fields:
-- "short": string (2-sentence summary)
+- "short": string (1-sentence summary)
 - "long": string (5-6 sentence summary)
 - "tags": array of 0-3 lowercase hyphenated strings
 
